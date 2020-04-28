@@ -11,6 +11,8 @@
 ภาควิชาเทคนิคการแพทย์ชมุชน
 
 คณะเทคนิคการแพทย์ มหาวิทยาลัยมหิดล
+
+ปรับปรุงล่าสุดวันที่ 27 เม.ย. 2563
 </div>
 
 ---
@@ -349,6 +351,198 @@ DELETE FROM customers WHERE id=2;
 
 สังเกตว่าเนื่องจากเราตั้งค่า ```ON DELETE CASCADE``` ดังนั้นเมื่อเราลบรายการ customers รายการผลการทดสอบที่เกี่ยวข้องกับผู้รับบริการรายนั้นจะถูกลบไปด้วย
 
+## การวิเคราะห์ข้อมูลตัวอย่าง Chinook Database
+
+Chinook Database เป็นฐานข้อมูลตัวอย่างที่มีขนาดข้อมูลใหญ่มากขึ้นและมีตารางหลายตารางเหมาะสำหรับการเรียนรู้คำสั่ง SQL เบื้องต้น โครงสร้างของฐานข้อมูลดังแสดงในรูป
+
+![chinook db](sqlite-sample-database-diagram-color.png)
+
+### Aggregrate Functions
+
+การวิเคราะห์ข้อมูลในฐานข้อมูลโดยส่วนมากมักจะเป็นการจัดการกับข้อมูลในภาพรวมมากกว่าข้อมูลแต่ละรายการหรือ record เช่นจำนวนลูกค้าที่มาใช้บริการในร้านค้าในแต่ละเดือนและไตรมาศเป็นต้น ซึ่งเราสามารถใช้คำสั่ง ```SELECT``` ในการเรียกดูข้อมูลและกรองข้อมูลที่ต้องการได้แต่การนับจำนวนลูกค้าโดยนับแต่ละรายการนั้นหากมีจำนวนลูกค้าจำนวนมากจะทำให้เสียเวลาและเกิดความผิดพลาดได้ง่าย **aggregate function** รับ input เป็นคอลัมน์และรายการข้อมูลหลายรายการจากนั้นให้คำตอบที่เป็นตัวเลขดังตัวอย่าง
+
+```SQL
+SELECT count(customerid) FROM customers;
+```
+
+คำตอบที่ได้คือ 59 รายการ
+
+คำสั่ง ```COUNT``` จะนับจำนวนรายการในคอลัมน์ที่ไม่ใช่ ```NULL``` ซึ่งหากในคอลัมน์มีข้อมูลที่ขาดหายไปหรือเป็น ```NULL``` จะทำให้ไม่ทราบจำนวนรายการทั้งหมด สามารถแก้ไขได้โดยใช้คำสั่ง
+
+```SQL
+SELECT count(*) FROM customers;
+```
+
+ซึ่งในที่นี้ยังได้คำตอบเท่าเดิม เนื่องจากคอลัมน์ customerid เป็น primary key จึงไม่มีข้อมูลที่เป็น ```NULL```
+
+aggregate function สามารถใช้งานร่วมกับ ```WHERE``` เพื่อกำหนดเงื่อนไขได้เช่นหากเราต้องการนับจำนวนลูกค้าที่มาจากประเทศสหรัฐอเมริกาเราสามารถใช้คำสั่งได้ดังนี้
+
+```SQL
+SELECT count(*) FROM customers WHERE country='USA';
+```
+
+จะได้คำตอบเท่ากับ 13
+
+เรายังสามารถทำการคำนวณทางคณิตศาสตร์กับข้อมูลที่เราได้มาจาก aggregate function อีกด้วยดังเช่น
+
+```SQL
+SELECT count(*)*2 FROM customers WHERE country='USA';
+```
+
+จะได้คำตอบเท่ากับ $13\times2=26$
+
+เราสามารถหาค่าต่ำสุด สูงสุด ค่าเฉลี่ยและผลรวมของข้อมูลได้ด้วยคำสั่ง ```MIN, MAX, AVG, SUM``` ตามลำดับดังนี้
+
+```SQL
+SELECT MIN(total) FROM invoices;
+```
+
+คำตอบคือ 0.99
+
+```SQL
+SELECT MAX(total) FROM invoices;
+```
+
+คำตอบคือ 25.86
+
+```SQL
+SELECT AVG(total) FROM invoices;
+```
+
+คำตอบคือ 5.65
+
+```SQL
+SELECT SUM(total) FROM invoices;
+```
+
+คำตอบคือ 2328.60
+
+**คำถาม**
+
+    หากนักศึกษาใช้คำสั่งข้างต้นกับข้อมูลที่ไม่ใช่ตัวเลขจะเกิดอะไรขึ้น และปัญหาจากการใช้งานฟังก์ชั่นเหล่านี้กับข้อมูลที่ไม่ใช่ตัวเลขควรป้องกันอย่างไร
+
+### คำสั่ง ```GROUP BY```
+
+คำสั่ง ```GROUP BY``` มีประโยชน์มากทำงานเหมือนกับการสร้าง Pivot Table ในโปรแกรมอย่างเช่น MS Excel ทำให้เราสามารถสรุปข้อมูลเพื่อวิเคราะห์ภาพรวมได้อย่างรวดเร็วโดยการจำแนกเป็นกลุ่มเช่น หากเราต้องการทราบจำนวนลูกค้าในแต่ละประเทศเราสามารถใช้คำสั่งในรูปแบบดังนี้
+
+```SQL
+SELECT key, AGGFUNC(column1) FROM table GROUP BY key
+```
+
+โดยกำหนดให้ key คือ คอลัมน์ country ดังตัวอย่าง
+
+```SQL
+SELECT country, COUNT(customerid) FROM customers GROUP BY country;
+```
+
+ผลที่ได้คือตารางรายชื่อประเทศและจำนวนลูกค้าในประเทศนั้นๆ
+
+| Country | Count |
+| --- | --- |
+Argentina | 1
+Australia | 1
+Austria | 1
+... | ...
+
+เป็นต้น หากเราจะนับจำนวนลูกค้าที่มาจากแต่ละรัฐหรือ state เราก็สามารถใช้คอลัมน์ state เป็น key ได้ดังนี้
+
+```SQL
+SELECT state, COUNT(customerid) FROM customers GROUP BY state;
+```
+
+| State | Count |
+| --- | --- |
+```NULL``` | 29
+AB | 1
+AZ | 1
+... | ...
+
+เป็นต้น ซึ่งคำสั่ง GROUP BY ยังสามารถแบ่งกลุ่มย่อยซ้อนกันได้เหมือนกับการสร้าง Pivot Table เช่นหากเราต้องการนับจำนวนลูกค้าในแต่ละประเทศโดยจำแนกออกเป็นแต่ละรัฐด้วย เราสามารถทำได้ดังนี้
+
+```SQL
+SELECT country,state, COUNT(customerid) FROM customers GROUP BY country,state;
+```
+
+ผลที่ได้คือ
+
+| Country | State | Count
+| --- | --- | ---
+Argentina | ```NULL``` | 1
+... | ... | ...
+USA | AZ | 1
+USA | CA | 3
+USA | FL | 1
+... | ... | ...
+
+นักศึกษาจะสังเกตได้ว่าข้อมูลจะเรียงตามประเทศและจากนั้นตามด้วยรัฐและจำนวนลูกค้าในแต่ละรัฐนั้นๆ
+
+เราสามารถจัดเรียงข้อมูลได้ตามปกติเช่น หากเราต้องการเรียนข้อมูลตามประเทศจากล่างขึ้นบนหรือ Z ไป A สามารถทำได้ดังนี้
+
+```SQL
+SELECT country,state, COUNT(customerid) FROM customers GROUP by country,state ORDER BY country DESC;
+```
+
+แต่โดยส่วนมากเราอาจจะต้องการเรียงข้อมูลตามค่าที่ได้มาเช่นจำนวนนับเพื่อหารัฐที่มีลูกค้ามากที่สุด เราสามารถทำได้ดังนี้
+
+```SQL
+SELECT country,state, COUNT(customerid) FROM customers GROUP BY country,state ORDER BY count(*) DESC;
+```
+
+คำตอบคือประเทศฝรั่งเศสแต่ไม่ระบุรัฐ
+
+เราลองมาดูคำสั่งที่ซับซ้อนมากขึ้นเช่น หากเราต้องการที่จะสรุปยอดขายทั้งหมด (total) โดยดูจากรายการในตาราง invoices สรุปตามประเทศและรัฐของลูกค้า เราสามารถใช้คำสั่ง ```INNER JOIN``` มาเชื่อมข้อมูลระหว่างตาราง customers และ invoices ดังนี้
+
+```SQL
+SELECT country,state,SUM(total) FROM invoices
+INNER JOIN customers ON customers.customerid=invoices.customerid
+GROUP BY country, state;
+```
+
+ผลที่ได้คือ
+
+| Country | State | Sum
+| --- | --- | ---
+Argentina | ```NULL``` | 37.62
+Australia | NSW | 37.62
+... | ... | ...
+USA | CA | 115.85
+
+สังเกตว่าเนื่องจากเราต้องการรวมข้อมูล เราจึงใช้ฟังก์ชั่น ```SUM``` แทน ```COUNT```
+
+ทั้งนี้หากเราต้องการสรุปเฉพาะ subset ของข้อมูลเช่น เฉพาะรัฐ CA เราสามารถเพิ่มเงื่อนไขในคำสั่งได้ด้วยคำสั่ง ```WHERE``` ดังตัวอย่าง
+
+```SQL
+SELECT country,state,SUM(total) FROM invoices
+INNER JOIN customers ON customers.customerid=invoices.customerid
+WHERE state='CA'
+GROUP BY country, state;
+```
+
+บางครั้งเราต้องการที่จะเลือกข้อมูลโดยพิจารณาจากค่าที่ได้จากคำสั่ง ```GROUP BY``` เช่นรายการยอดรวมที่มีค่ามากกว่า $100 เป็นต้น สำหรับกรณีนี้เราไม่สามารถใช้คำสั่ง ```WHERE``` ได้แต่ต้องใช้คำสั่ง ```HAVING``` แทนดังตัวอย่าง
+
+```SQL
+SELECT country,state,SUM(total) FROM invoices
+INNER JOIN customers ON customers.customerid=invoices.customerid
+GROUP BY country, state
+HAVING SUM(total) > 100.0;
+```
+
+ซึ่งคำตอบที่เราจะได้มีทั้งหมด 4 รายการจาก 4 ประเทศ
+
+### แบบฝึกหัด
+
+1. นักศึกษาจะต้องใช้คำสั่งอย่างไรจึงจะสามารถสรุปยอดการซื้อของลูกค้าแต่ละคนได้
+2. หากทางร้านต้องการเสนอโปรโมชั่นให้กับลูกค้าที่มียอดซื้อสูงสุด 5 คน นักศึกษาจะหาลูกค้าทั้ง 5 คนได้อย่างไร
+3. ผลงานเพลงแนวใด (genre) ที่มีจำนวนเพลง (track) มากที่สุด
+4. อัลบัมได้ทำยอดขายได้มากที่สุดในร้าน 5 อันดับแรก
+
+```SQL
+select a.Title, sum(i.unitprice*i.Quantity) from tracks t
+	inner join genres g on t.genreid=g.GenreId
+	INNER JOIN albums a on t.AlbumId=a.AlbumId
+    INNER JOIN invoice_items i on t.TrackId=i.TrackId
+GROUP by a.Title ORDER BY sum(i.unitprice*i.quantity) DESC;
+```
 
 ## เอกสารอ้างอิง
 
